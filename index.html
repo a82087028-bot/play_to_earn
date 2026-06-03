@@ -17,8 +17,8 @@
         const MIN_CRYPTO_WITHDRAW = 20000; 
         const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
 
-        // Adsgram Block ID Configuration
-        const ADSGRAM_BLOCK_ID = '33981';
+        // NOTE: Testing ke liye 'test-banner' use ho raha hai. Live karne ke liye apni ID '33981' lagayein.
+        const ADSGRAM_BLOCK_ID = 'test-banner';
 
         window.onload = function() {
             updateDashboard();
@@ -69,7 +69,7 @@
             }
         }
 
-        // Real Adsgram Video Ad Integration
+        // Real Adsgram Video Ad Integration (Fixed Fallback State)
         function showAdsgramVideoAd() {
             isProcessing = true;
             const btn = document.getElementById('action-btn');
@@ -90,11 +90,14 @@
                 // User skipped or an error occurred
                 isProcessing = false;
                 if(btn) btn.disabled = false;
-                updateDashboard();
                 
-                if (result.error) {
+                // UI aur Button ko wapas reset karne ke liye
+                updateDashboard();
+                updateButtonUI(); 
+                
+                if (result && result.error) {
                     document.getElementById('msg-banner').innerText = "❌ Ad failed to load. Please try again.";
-                    alert("⚠️ Error loading ad: " + result.description);
+                    alert("⚠️ Adsgram Error: " + result.description + "\n\nNote: Adsgram ads only work inside Telegram App/Bot view.");
                 } else {
                     document.getElementById('msg-banner').innerText = "⚠️ Ad closed early. No spin rewarded.";
                     alert("⚠️ Reward skipped: You must watch the full video to get a spin.");
