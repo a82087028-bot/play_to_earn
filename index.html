@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crypto Spin & Earn</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #0b0f19;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            overflow: hidden;
+        }
+        #game-container {
+            width: 100%;
+            max-width: 450px;
+            height: 100%;
+            margin: 0 auto;
+            background: radial-gradient(circle, #111827 0%, #0b0f19 100%);
+            box-shadow: 0 0 35px rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            padding: 25px 20px;
+            position: relative;
+        }
+
+        /* --- MAIN SCREEN UI --- */
+        #wheel-screen {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-ui {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 12px 15px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .app-title {
+            font-size: 13px;
+            font-weight: 800;
+            color: #38bdf8;
+        }
+        .stats-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .coin-box {
+            font-size: 11px;
+            color: #fbbf24;
+            font-weight: 800;
+            background: rgba(251, 191, 36, 0.08);
+            padding: 6px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(251, 191, 36, 0.15);
+        }
+        .cash-box {
+            font-size: 11px;
+            color: #22c55e;
+            font-weight: 800;
+            background: rgba(34, 197, 94, 0.08);
+            padding: 6px 8px;
+            border-radius: 10px;
+            border: 1px solid rgba(34, 197, 94, 0.15);
+        }
+        
+        .nav-withdraw-btn {
+            font-size: 11px;
+            font-weight: bold;
+            color: #ffffff;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: 1px solid #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(2,132,199,0.4);
+            transition: all 0.2s ease;
+        }
+        .nav-withdraw-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* --- SVG SMOOTH WHEEL SYSTEM --- */
+        .wheel-outer-ring {
+            position: relative;
+            width: 330px;
+            height: 330px;
+            border-radius: 50%;
+            border: 8px solid #1f2937;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.7), 0 0 0 3px #38bdf8;
+            margin: auto 0;
+            background-color: #1f2937;
+        }
+        .wheel-pointer {
+            position: absolute;
+            top: -14px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 14px solid transparent;
+            border-right: 14px solid transparent;
+            border-top: 24px solid #ef4444;
+            z-index: 30;
+        }
+        #wheel-svg {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            transition: transform 4.5s cubic-bezier(0.2, 0.85, 0.25, 1);
+            transform: rotate(0deg);
+        }
+        .slice-text {
+            font-family: 'Segoe UI', sans-serif;
+            font-weight: 900;
+            font-size: 16px;
+            fill: white;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .wheel-center-cap {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 54px; height: 54px;
+            background: #fff;
+            border: 4px solid #38bdf8;
+            border-radius: 50%;
+            z-index: 25;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        /* --- CONTROLS --- */
+        .bottom-controls {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .status-banner {
+            font-size: 14px;
+            text-align: center;
+            color: #94a3b8;
+            min-height: 45px;
+            font-weight: 600;
+            padding: 0 10px;
+        }
+        .ad-spin-btn {
+            width: 100%;
+            padding: 16px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+            border: none;
+            border-radius: 14px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(2,132,199,0.3);
+            transition: all 0.2s ease;
+        }
+        .spin-ready-state {
+            background: linear-gradient(135deg, #22c55e 0%, #15803d 100%) !important;
+            box-shadow: 0 4px 15px rgba(34,197,94,0.4) !important;
+        }
+        .ad-spin-btn:disabled {
+            background: #1f2937;
+            color: #4b5563;
+            box-shadow: none;
+            cursor: not-allowed;
+        }
+
+        /* --- SCREEN 2: PAYOUT GATEWAY --- */
+        #payout-screen {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: #0b0f19;
+            z-index: 40;
+            display: none;
+            flex-direction: column;
+            padding: 25px 20px;
+            justify-content: flex-start;
+            gap: 25px;
+        }
+        .payout-nav-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #1f2937;
+            padding-bottom: 15px;
+        }
+        .back-nav-btn {
+            background: #1f2937;
+            border: none;
+            color: #38bdf8;
+            padding: 8px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .payout-headline { font-size: 18px; font-weight: bold; }
+        .payout-balance-display {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+        }
+        .big-balance { font-size: 32px; font-weight: 800; color: #22c55e; }
+        .withdraw-inputs { display: flex; flex-direction: column; gap: 15px; }
+        .withdraw-inputs label { font-size: 13px; color: #94a3b8; }
+        .withdraw-inputs select, .withdraw-inputs input {
+            width: 100%; padding: 14px; border-radius: 10px;
+            border: 1px solid #374151; background: #1f2937; color: white;
+        }
+        .withdraw-btn {
+            width: 100%; padding: 15px; background: #22c55e; color: #0b0f19;
+            border: none; border-radius: 10px; font-weight: bold; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    
+    <div id="wheel-screen">
+        <div class="header-ui">
+            <div class="app-title">CRYPTO SPIN</div>
+            <div class="stats-group">
+                <div class="coin-box"><span id="coin-count">0</span> C</div>
+                <div class="cash-box"><span id="cash-count">0.000</span> $</div>
+                <div class="nav-withdraw-btn" onclick="navigateToPayoutScreen()">Withdraw</div>
+            </div>
+        </div>
+
+        <div class="wheel-outer-ring">
+            <div class="wheel-pointer"></div>
+            
+            <svg id="wheel-svg" viewBox="0 0 300 300">
+                <path d="M150,150 L150,0 A150,150 0 0,1 256.06,43.93 Z" fill="#ef4444"/>
+                <path d="M150,150 L256.06,43.93 A150,150 0 0,1 300,150 Z" fill="#3b82f6"/>
+                <path d="M150,150 L300,150 A150,150 0 0,1 256.06,256.06 Z" fill="#10b981"/>
+                <path d="M150,150 L256.06,256.06 A150,150 0 0,1 150,300 Z" fill="#f59e0b"/>
+                <path d="M150,150 L150,300 A150,150 0 0,1 43.93,256.06 Z" fill="#ec4899"/>
+                <path d="M150,150 L43.93,256.06 A150,150 0 0,1 0,150 Z" fill="#8b5cf6"/>
+                <path d="M150,150 L0,150 A150,150 0 0,1 43.93,43.93 Z" fill="#06b6d4"/>
+                <path d="M150,150 L43.93,43.93 A150,150 0 0,1 150,0 Z" fill="#f43f5e"/>
+
+                <g class="slice-text">
+                    <text transform="translate(185, 65) rotate(22.5)">50</text>
+                    <text transform="translate(235, 115) rotate(67.5)">1000</text>
+                    <text transform="translate(235, 185) rotate(112.5)">300</text>
+                    <text transform="translate(185, 235) rotate(157.5)">150</text>
+                    <text transform="translate(115, 235) rotate(202.5)">75</text>
+                    <text transform="translate(65, 185) rotate(247.5)">500</text>
+                    <text transform="translate(65, 115) rotate(292.5)">250</text>
+                    <text transform="translate(115, 65) rotate(337.5)">100</text>
+                </g>
+            </svg>
+
+            <div class="wheel-center-cap">💎</div>
+        </div>
+
+        <div class="bottom-controls">
+            <div id="msg-banner" class="status-banner">Spins Remaining: 0.<br>Watch ad to get 1 free lucky spin!</div>
+            <button id="action-btn" class="ad-spin-btn" onclick="handleMainButtonClick()">
+                🎬 Watch Ad to Earn 1 Spin
+            </button>
+        </div>
+    </div>
+
+    <div id="payout-screen">
+        <div class="payout-nav-header">
+            <button class="back-nav-btn" onclick="navigateToGameScreen()">⬅ Back</button>
+            <div class="payout-headline">Crypto Cashout</div>
+        </div>
+        <div class="payout-balance-display">
+            <div style="font-size:13px; color:#94a3b8;">Your Current Redeemable Value</div>
+            <div class="big-balance"><span id="payout-cash-count">0.000</span> USD</div>
+            <div style="font-size:11px; color:#64748b; margin-top:5px;">Min Payout Threshold: 20,000 Coins ($1.00)</div>
+        </div>
+        <div class="withdraw-inputs">
+            <div>
+                <label>Select Crypto Asset Network</label>
+                <select id="crypto-asset" style="margin-top:6px;">
+                    <option value="USDT">USDT (Network: TRC20)</option>
+                    <option value="TRX">TRX (Network: TRON)</option>
+                    <option value="TON">TON (Network: TON Space)</option>
+                </select>
+            </div>
+            <div>
+                <label>Wallet Address Destination</label>
+                <input type="text" id="wallet-address" placeholder="Paste your address here" style="margin-top:6px;">
+            </div>
+            <button class="withdraw-btn" onclick="processCryptoPayout()">Claim Payout</button>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let walletCoins = 0;
+    let availableSpins = 0;
+    let isProcessing = false;
+    let currentRotation = 0; 
+    
+    const TO_USD_RATE = 20000; // 20,000 Coins = 1 USD ($0.005 per 100 coins)
+    const MIN_CRYPTO_WITHDRAW = 20000; 
+
+    const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
+
+    function navigateToPayoutScreen() {
+        document.getElementById('wheel-screen').style.display = 'none';
+        document.getElementById('payout-screen').style.display = 'flex';
+    }
+    function navigateToGameScreen() {
+        document.getElementById('payout-screen').style.display = 'none';
+        document.getElementById('wheel-screen').style.display = 'flex';
+    }
+
+    function updateDashboard() {
+        document.getElementById('coin-count').innerText = walletCoins;
+        let usdVal = (walletCoins / TO_USD_RATE).toFixed(3);
+        document.getElementById('cash-count').innerText = usdVal;
+        document.getElementById('payout-cash-count').innerText = usdVal;
+        updateButtonUI();
+    }
+
+    function updateButtonUI() {
+        const btn = document.getElementById('action-btn');
+        const banner = document.getElementById('msg-banner');
+
+        if (isProcessing) return;
+
+        if (availableSpins > 0) {
+            btn.innerText = "🎰 Tap to Spin Wheel!";
+            btn.classList.add('spin-ready-state');
+            banner.innerHTML = `✨ Spin Ready! You have <b>${availableSpins} spin</b> available.<br>Tap the button above to test your luck!`;
+        } else {
+            btn.innerText = "🎬 Watch Ad to Earn 1 Spin";
+            btn.classList.remove('spin-ready-state');
+            banner.innerHTML = "Spins Remaining: 0.<br>Watch ad to get 1 free lucky spin!";
+        }
+    }
+
+    function handleMainButtonClick() {
+        if (isProcessing) return;
+
+        if (availableSpins > 0) {
+            triggerLuckySpin();
+        } else {
+            simulateAdWatch();
+        }
+    }
+
+    // --- CLEAN SIMPLE AD SIMULATION ---
+    function simulateAdWatch() {
+        isProcessing = true;
+        const btn = document.getElementById('action-btn');
+        btn.disabled = true;
+        document.getElementById('msg-banner').innerText = "⏳ Loading Video Ad components...";
+
+        setTimeout(() => {
+            availableSpins += 1;
+            isProcessing = false;
+            btn.disabled = false;
+            
+            updateDashboard();
+            document.getElementById('msg-banner').innerHTML = `🎬 Ad Completed! You earned <b>1 Free Spin</b>.`;
+        }, 1500); 
+    }
+
+    function triggerLuckySpin() {
+        isProcessing = true;
+        availableSpins -= 1; 
+        
+        const btn = document.getElementById('action-btn');
+        btn.disabled = true;
+        btn.classList.remove('spin-ready-state');
+        
+        const wheel = document.getElementById('wheel-svg');
+        let targetSector = 0;
+
+        // --- RETENTION CONTROLLER ENGINE ---
+        if (walletCoins >= 6000) {
+            let diceRoll = Math.random() * 100; 
+            if (diceRoll < 85) {
+                let microPrizes = [0, 4, 7]; 
+                targetSector = microPrizes[Math.floor(Math.random() * microPrizes.length)];
+            } else {
+                let midPrizes = [2, 3, 6]; 
+                targetSector = midPrizes[Math.floor(Math.random() * midPrizes.length)];
+            }
+        } else {
+            targetSector = Math.floor(Math.random() * 8);
+        }
+        
+        const sectorAngle = 45;
+        const centerOfSectorOffset = 22.5; 
+        const targetDegrees = (360 - (targetSector * sectorAngle) - centerOfSectorOffset) % 360;
+
+        const minimumSpins = 6; 
+        const additionalDegrees = (minimumSpins * 360) + targetDegrees;
+        
+        const currentSpinRemainder = currentRotation % 360;
+        currentRotation += additionalDegrees - currentSpinRemainder;
+
+        document.getElementById('msg-banner').innerText = "🔮 Wheel spinning! Best of luck...";
+        wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+        setTimeout(() => {
+            // DIRECT EXTRACTION (Bina kisi extra calculation ke exact prize coins)
+            const finalCoinsReleased = prizeRewards[targetSector];
+            
+            walletCoins += finalCoinsReleased;
+            
+            isProcessing = false;
+            btn.disabled = false;
+            updateDashboard();
+            
+            document.getElementById('msg-banner').innerHTML = `🎉 Wheel stopped! Received <b>+${finalCoinsReleased} Coins</b>!`;
+        }, 4600); 
+    }
+
+    function processCryptoPayout() {
+        if (walletCoins < MIN_CRYPTO_WITHDRAW) {
+            let claimVal = (MIN_CRYPTO_WITHDRAW / TO_USD_RATE).toFixed(2);
+            alert(`⚠️ Error: Minimum balance of 20,000 Coins ($${claimVal}) required to request a payout.`);
+            return;
+        }
+        const targetAddress = document.getElementById('wallet-address').value.trim();
+        if(!targetAddress || targetAddress.length < 10) {
+            alert("⚠️ Error: Check entry address validity.");
+            return;
+        }
+        
+        let usdClaimValue = (walletCoins / TO_USD_RATE).toFixed(3);
+        if (confirm(`Confirm Payout Dispatch for ${usdClaimValue} USD?`)) {
+            alert(`✅ Payout pipeline processing initialized.`);
+            walletCoins = 0;
+            updateDashboard();
+            navigateToGameScreen();
+        }
+    }
+</script>
+
+</body>
+</html>
