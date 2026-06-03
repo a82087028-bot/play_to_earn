@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Crypto Spin & Earn</title>
 
+    <script src="https://adsgram.org/sdk/v1/adcontroller.js"></script>
+
     <script>
         let walletCoins = parseInt(localStorage.getItem('walletCoins')) || 0;
         let availableSpins = 0;
@@ -14,6 +16,9 @@
         const TO_USD_RATE = 20000; 
         const MIN_CRYPTO_WITHDRAW = 20000; 
         const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
+
+        // Adsgram Block ID Configuration
+        const ADSGRAM_BLOCK_ID = '33981';
 
         window.onload = function() {
             updateDashboard();
@@ -60,23 +65,41 @@
             if (availableSpins > 0) {
                 triggerLuckySpin();
             } else {
-                simulateAdWatch();
+                showAdsgramVideoAd();
             }
         }
 
-        function simulateAdWatch() {
+        // Real Adsgram Video Ad Integration
+        function showAdsgramVideoAd() {
             isProcessing = true;
             const btn = document.getElementById('action-btn');
-            btn.disabled = true;
-            document.getElementById('msg-banner').innerText = "⏳ Loading Video Ad components...";
+            if(btn) btn.disabled = true;
+            document.getElementById('msg-banner').innerText = "⏳ Loading Video Ad...";
 
-            setTimeout(() => {
+            // Initialize Adsgram AdController
+            const AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+
+            AdController.show().then((result) => {
+                // User watched the ad completely
                 availableSpins += 1;
                 isProcessing = false;
                 if(btn) btn.disabled = false;
                 updateDashboard();
                 document.getElementById('msg-banner').innerHTML = `🎬 Ad Completed! You earned <b>1 Free Spin</b>.`;
-            }, 1500); 
+            }).catch((result) => {
+                // User skipped or an error occurred
+                isProcessing = false;
+                if(btn) btn.disabled = false;
+                updateDashboard();
+                
+                if (result.error) {
+                    document.getElementById('msg-banner').innerText = "❌ Ad failed to load. Please try again.";
+                    alert("⚠️ Error loading ad: " + result.description);
+                } else {
+                    document.getElementById('msg-banner').innerText = "⚠️ Ad closed early. No spin rewarded.";
+                    alert("⚠️ Reward skipped: You must watch the full video to get a spin.");
+                }
+            });
         }
 
         function triggerLuckySpin() {
