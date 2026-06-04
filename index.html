@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Crypto Spin & Earn</title>
+    <title>Crypto Spin & Earn (Professional Cloud)</title>
 
     <script src="https://adsgram.org/sdk/v1/adcontroller.js"></script>
 
     <script>
-        let walletCoins = parseInt(localStorage.getItem('walletCoins')) || 0;
+        let telegramUserId = "123456789"; // Live hone par yeh auto Telegram ID uthayega
+        let walletCoins = 0;
         let availableSpins = 0;
         let isProcessing = false;
         let currentRotation = 0; 
@@ -16,14 +17,28 @@
         const TO_USD_RATE = 20000; 
         const MIN_CRYPTO_WITHDRAW = 20000; 
         const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
-
-        // NOTE: Testing ke liye 'test-banner' use ho raha hai. Live karne ke liye apni ID '33981' lagayein.
         const ADSGRAM_BLOCK_ID = 'test-banner';
+        
+        // 🚨 NOTE: Jab Render aapko live URL dega, toh 'YOUR-RENDER-URL' ki jagah wo link paste kr dena
+        const BACKEND_URL = 'YOUR-RENDER-URL' || 'http://localhost:3000'; 
 
         window.onload = function() {
-            updateDashboard();
-            renderHistory();
+            fetchUserData();
         };
+
+        async function fetchUserData() {
+            try {
+                let response = await fetch(`${BACKEND_URL}/api/user-data?userId=${telegramUserId}`);
+                let data = await response.json();
+                walletCoins = data.coins;
+                availableSpins = data.spins;
+                updateDashboard();
+                renderHistory(data.history);
+            } catch (err) {
+                console.error("Backend offline ya connecting issue:", err);
+                document.getElementById('msg-banner').innerText = "❌ Connecting to server failed...";
+            }
+        }
 
         function navigateToPayoutScreen() {
             document.getElementById('wheel-screen').style.display = 'none';
@@ -36,7 +51,6 @@
         }
 
         function updateDashboard() {
-            localStorage.setItem('walletCoins', walletCoins);
             document.getElementById('coin-count').innerText = walletCoins;
             let usdVal = (walletCoins / TO_USD_RATE).toFixed(3);
             document.getElementById('cash-count').innerText = usdVal;
@@ -52,7 +66,7 @@
             if (availableSpins > 0) {
                 btn.innerText = "🎰 Tap to Spin Wheel!";
                 btn.classList.add('spin-ready-state');
-                banner.innerHTML = `✨ Spin Ready! You have <b>${availableSpins} spin</b> available.<br>Tap the button above to test your luck!`;
+                banner.innerHTML = `✨ Spin Ready! You have <b>${availableSpins} spin</b> available.`;
             } else {
                 btn.innerText = "🎬 Watch Ad to Earn 1 Spin";
                 btn.classList.remove('spin-ready-state');
@@ -63,100 +77,106 @@
         function handleMainButtonClick() {
             if (isProcessing) return;
             if (availableSpins > 0) {
-                triggerLuckySpin();
+                triggerLuckySpinFromServer();
             } else {
                 showAdsgramVideoAd();
             }
         }
 
-        // Real Adsgram Video Ad Integration (Fixed Fallback State)
         function showAdsgramVideoAd() {
             isProcessing = true;
             const btn = document.getElementById('action-btn');
             if(btn) btn.disabled = true;
             document.getElementById('msg-banner').innerText = "⏳ Loading Video Ad...";
 
-            // Initialize Adsgram AdController
             const AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
 
-            AdController.show().then((result) => {
-                // User watched the ad completely
-                availableSpins += 1;
-                isProcessing = false;
-                if(btn) btn.disabled = false;
-                updateDashboard();
-                document.getElementById('msg-banner').innerHTML = `🎬 Ad Completed! You earned <b>1 Free Spin</b>.`;
-            }).catch((result) => {
-                // User skipped or an error occurred
-                isProcessing = false;
-                if(btn) btn.disabled = false;
-                
-                // UI aur Button ko wapas reset karne ke liye
-                updateDashboard();
-                updateButtonUI(); 
-                
-                if (result && result.error) {
-                    document.getElementById('msg-banner').innerText = "❌ Ad failed to load. Please try again.";
-                    alert("⚠️ Adsgram Error: " + result.description + "\n\nNote: Adsgram ads only work inside Telegram App/Bot view.");
-                } else {
-                    document.getElementById('msg-banner').innerText = "⚠️ Ad closed early. No spin rewarded.";
-                    alert("⚠️ Reward skipped: You must watch the full video to get a spin.");
+            AdController.show().then(async (result) => {
+                try {
+                    let res = await fetch(`${BACKEND_URL}/api/reward-ad`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: telegramUserId })
+                    });
+                    let data = await res.json();
+                    availableSpins = data.spins;
+                    isProcessing = false;
+                    if(btn) btn.disabled = false;
+                    updateDashboard();
+                    document.getElementById('msg-banner').innerHTML = `🎬 Ad Reward Confirmed by Server!`;
+                } catch (e) {
+                    alert("Server error processing ad reward.");
+                    isProcessing = false;
+                    if(btn) btn.disabled = false;
                 }
+            }).catch((result) => {
+                isProcessing = false;
+                if(btn) btn.disabled = false;
+                updateDashboard();
+                updateButtonUI();
+                alert("Ad skipped or failed.");
             });
         }
 
-        function triggerLuckySpin() {
+        async function triggerLuckySpinFromServer() {
             isProcessing = true;
-            availableSpins -= 1; 
-            
             const btn = document.getElementById('action-btn');
             btn.disabled = true;
             btn.classList.remove('spin-ready-state');
             
-            const wheel = document.getElementById('wheel-svg');
-            let targetSector = 0;
+            document.getElementById('msg-banner').innerText = "🔮 Calculating your luck on server...";
 
-            if (walletCoins >= 6000) {
-                let diceRoll = Math.random() * 100; 
-                if (diceRoll < 85) {
-                    let microPrizes = [0, 4, 7]; 
-                    targetSector = microPrizes[Math.floor(Math.random() * microPrizes.length)];
-                } else {
-                    let midPrizes = [2, 3, 6]; 
-                    targetSector = midPrizes[Math.floor(Math.random() * midPrizes.length)];
-                }
-            } else {
-                targetSector = Math.floor(Math.random() * 8);
-            }
-            
-            const sectorAngle = 45;
-            const centerOfSectorOffset = 22.5; 
-            const targetDegrees = (360 - (targetSector * sectorAngle) - centerOfSectorOffset) % 360;
-            const minimumSpins = 6; 
-            const additionalDegrees = (minimumSpins * 360) + targetDegrees;
-            const currentSpinRemainder = currentRotation % 360;
-            currentRotation += additionalDegrees - currentSpinRemainder;
-
-            document.getElementById('msg-banner').innerText = "🔮 Wheel spinning! Best of luck...";
-            if(wheel) wheel.style.transform = `rotate(${currentRotation}deg)`;
-
-            setTimeout(() => {
-                const finalCoinsReleased = prizeRewards[targetSector];
-                walletCoins += finalCoinsReleased;
+            try {
+                let res = await fetch(`${BACKEND_URL}/api/spin-wheel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: telegramUserId })
+                });
+                let data = await res.json();
                 
+                if(data.error) {
+                    alert(data.error);
+                    isProcessing = false;
+                    if(btn) btn.disabled = false;
+                    fetchUserData();
+                    return;
+                }
+
+                let targetSector = data.targetSector;
+                availableSpins = data.remainingSpins;
+
+                const sectorAngle = 45;
+                const centerOfSectorOffset = 22.5; 
+                const targetDegrees = (360 - (targetSector * sectorAngle) - centerOfSectorOffset) % 360;
+                const minimumSpins = 6; 
+                const additionalDegrees = (minimumSpins * 360) + targetDegrees;
+                const currentSpinRemainder = currentRotation % 360;
+                currentRotation += additionalDegrees - currentSpinRemainder;
+
+                const wheel = document.getElementById('wheel-svg');
+                if(wheel) wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+                setTimeout(() => {
+                    walletCoins = data.newBalance;
+                    isProcessing = false;
+                    if(btn) btn.disabled = false;
+                    updateDashboard();
+                    
+                    document.getElementById('msg-banner').innerHTML = `🎉 Winner! Received <b>+${prizeRewards[targetSector]} Coins</b>!`;
+                    renderHistory(data.history);
+                }, 4600);
+
+            } catch (err) {
+                alert("Connection Error. Unable to spin.");
                 isProcessing = false;
                 if(btn) btn.disabled = false;
-                updateDashboard();
-                
-                document.getElementById('msg-banner').innerHTML = `🎉 Wheel stopped! Received <b>+${finalCoinsReleased} Coins</b>!`;
-                saveToHistory('Lucky Spin', `+${finalCoinsReleased} Coins`, 'win');
-            }, 4600); 
+                updateButtonUI();
+            }
         }
 
-        function processCryptoPayout() {
+        async function processCryptoPayout() {
             if (walletCoins < MIN_CRYPTO_WITHDRAW) {
-                let claimVal = (MIN_CRYPTO_WITHDRAW / TO_USD_RATE).toFixed(2);
-                alert(`⚠️ Error: Minimum balance of 20,000 Coins ($${claimVal}) required to request a payout.`);
+                alert(`⚠️ Error: Minimum 20,000 Coins required.`);
                 return;
             }
             const targetAddress = document.getElementById('wallet-address').value.trim();
@@ -165,40 +185,40 @@
                 return;
             }
             
-            let usdClaimValue = (walletCoins / TO_USD_RATE).toFixed(3);
             const selectedAsset = document.getElementById('crypto-asset').value;
 
-            if (confirm(`Confirm Payout Dispatch for ${usdClaimValue} USD?`)) {
-                alert(`✅ Payout pipeline processing initialized.`);
-                saveToHistory(`Payout (${selectedAsset})`, `-$${usdClaimValue}`, 'out');
-                walletCoins = 0;
-                updateDashboard();
-                navigateToGameScreen();
+            if (confirm(`Confirm Payout Request?`)) {
+                try {
+                    let res = await fetch(`${BACKEND_URL}/api/withdraw`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: telegramUserId, address: targetAddress, asset: selectedAsset })
+                    });
+                    let data = await res.json();
+                    
+                    if(data.success) {
+                        alert(`✅ Payout Request Registered Successfully!`);
+                        walletCoins = data.newBalance;
+                        updateDashboard();
+                        renderHistory(data.history);
+                        navigateToGameScreen();
+                    } else {
+                        alert("Error: " + data.message);
+                    }
+                } catch(e) {
+                    alert("Database connection failed during payout.");
+                }
             }
         }
 
-        function saveToHistory(type, amount, status) {
-            let history = JSON.parse(localStorage.getItem('gameHistory')) || [];
-            let timeString = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            history.unshift({ type, amount, status, time: timeString });
-            if(history.length > 10) history.pop();
-            
-            localStorage.setItem('gameHistory', JSON.stringify(history));
-            renderHistory();
-        }
-
-        function renderHistory() {
-            let history = JSON.parse(localStorage.getItem('gameHistory')) || [];
+        function renderHistory(historyArray) {
             const container = document.getElementById('history-list-container');
             if(!container) return;
-            
-            if (history.length === 0) {
-                container.innerHTML = `<div class="history-item" style="color:#64748b; justify-content:center;">No history records found yet.</div>`;
+            if(!historyArray || historyArray.length === 0) {
+                container.innerHTML = `<div class="history-item" style="color:#64748b; justify-content:center;">No history records found.</div>`;
                 return;
             }
-            
-            container.innerHTML = history.map(item => `
+            container.innerHTML = historyArray.map(item => `
                 <div class="history-item">
                     <span class="hist-type">${item.type}</span>
                     <span class="hist-time">${item.time}</span>
@@ -206,55 +226,46 @@
                 </div>
             `).join('');
         }
-
-        function clearUserHistory() {
-            if(confirm("Delete all recent activity logs?")) {
-                localStorage.removeItem('gameHistory');
-                renderHistory();
-            }
-        }
     </script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body, html { width: 100%; height: 100%; background-color: #0b0f19; font-family: 'Segoe UI', sans-serif; color: white; overflow: hidden; }
-        #game-container { width: 100%; max-width: 450px; height: 100%; margin: 0 auto; background: radial-gradient(circle, #111827 0%, #0b0f19 100%); box-shadow: 0 0 35px rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 25px 20px; position: relative; }
-        #wheel-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; overflow-y: auto; padding-bottom: 10px; }
-        #wheel-screen::-webkit-scrollbar { display: none; }
-        .header-ui { width: 100%; display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.03); padding: 12px 15px; border-radius: 15px; border: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 10px; }
-        .app-title { font-size: 13px; font-weight: 800; color: #38bdf8; }
-        .stats-group { display: flex; align-items: center; gap: 6px; }
-        .coin-box { font-size: 11px; color: #fbbf24; font-weight: 800; background: rgba(251, 191, 36, 0.08); padding: 6px 8px; border-radius: 10px; border: 1px solid rgba(251, 191, 36, 0.15); }
-        .cash-box { font-size: 11px; color: #22c55e; font-weight: 800; background: rgba(34, 197, 94, 0.08); padding: 6px 8px; border-radius: 10px; border: 1px solid rgba(34, 197, 94, 0.15); }
-        .nav-withdraw-btn { font-size: 11px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); padding: 6px 12px; border-radius: 10px; border: 1px solid #38bdf8; cursor: pointer; box-shadow: 0 2px 8px rgba(2,132,199,0.4); transition: all 0.2s ease; }
-        .wheel-outer-ring { position: relative; width: 280px; height: 280px; border-radius: 50%; border: 8px solid #1f2937; box-shadow: 0 15px 35px rgba(0,0,0,0.7), 0 0 0 3px #38bdf8; margin: 10px 0; background-color: #1f2937; flex-shrink: 0; }
-        .wheel-pointer { position: absolute; top: -14px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 24px solid #ef4444; z-index: 30; }
-        #wheel-svg { width: 100%; height: 100%; border-radius: 50%; transition: transform 4.5s cubic-bezier(0.2, 0.85, 0.25, 1); transform: rotate(0deg); }
-        .slice-text { font-family: 'Segoe UI', sans-serif; font-weight: 900; font-size: 16px; fill: white; text-anchor: middle; dominant-baseline: middle; }
-        .wheel-center-cap { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 54px; height: 54px; background: #fff; border: 4px solid #38bdf8; border-radius: 50%; z-index: 25; display: flex; align-items: center; justify-content: center; font-size: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .history-card { width: 100%; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 10px; margin-bottom: 10px; max-height: 110px; overflow-y: auto; }
-        .history-card h4 { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; justify-content: space-between; }
-        .history-list { display: flex; flex-direction: column; gap: 5px; }
-        .history-item { display: flex; justify-content: space-between; align-items: center; font-size: 11px; padding: 4px 6px; background: rgba(255, 255, 255, 0.02); border-radius: 6px; }
+        body, html { width: 100%; height: 100%; background-color: #080b11; font-family: -apple-system, sans-serif; color: white; overflow: hidden; }
+        #game-container { width: 100%; max-width: 450px; height: 100%; margin: 0 auto; background: radial-gradient(circle at top, #1e293b 0%, #080b11 100%); box-shadow: 0 0 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 20px; position: relative; }
+        #wheel-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
+        .header-ui { width: 100%; display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.04); padding: 14px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); }
+        .app-title { font-size: 14px; font-weight: 800; color: #38bdf8; letter-spacing: 1px; }
+        .stats-group { display: flex; align-items: center; gap: 8px; }
+        .coin-box { color: #f59e0b; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 12px; }
+        .cash-box { color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 12px; }
+        .nav-withdraw-btn { font-size: 12px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); padding: 6px 14px; border-radius: 12px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(2,132,199,0.3); }
+        .wheel-outer-ring { position: relative; width: 300px; height: 300px; border-radius: 50%; border: 6px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 20px rgba(56, 189, 248, 0.2); margin: 20px 0; background-color: #1e293b; flex-shrink: 0; }
+        .wheel-pointer { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 26px solid #ef4444; z-index: 30; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); }
+        #wheel-svg { width: 100%; height: 100%; border-radius: 50%; transition: transform 4.5s cubic-bezier(0.1, 0.8, 0.1, 1); }
+        .slice-text { font-weight: 800; font-size: 15px; fill: white; }
+        .wheel-center-cap { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 58px; height: 58px; background: #080b11; border: 4px solid #38bdf8; border-radius: 50%; z-index: 25; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 0 15px rgba(56, 189, 248, 0.5); }
+        .history-card { width: 100%; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 12px; max-height: 120px; overflow-y: auto; }
+        .history-card h4 { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; }
+        .history-list { display: flex; flex-direction: column; gap: 6px; }
+        .history-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 6px 10px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.02); }
         .hist-type { font-weight: 600; }
-        .hist-amount-win { color: #22c55e; font-weight: bold; }
+        .hist-amount-win { color: #10b981; font-weight: bold; }
         .hist-amount-out { color: #ef4444; font-weight: bold; }
-        .hist-time { color: #4b5563; font-size: 10px; }
-        .bottom-controls { width: 100%; display: flex; flex-direction: column; gap: 10px; }
-        .status-banner { font-size: 14px; text-align: center; color: #94a3b8; min-height: 45px; font-weight: 600; padding: 0 10px; }
-        .ad-spin-btn { width: 100%; padding: 16px; font-size: 18px; font-weight: bold; color: white; background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); border: none; border-radius: 14px; cursor: pointer; box-shadow: 0 4px 15px rgba(2,132,199,0.3); transition: all 0.2s ease; }
-        .spin-ready-state { background: linear-gradient(135deg, #22c55e 0%, #15803d 100%) !important; box-shadow: 0 4px 15px rgba(34,197,94,0.4) !important; }
-        .ad-spin-btn:disabled { background: #1f2937; color: #4b5563; box-shadow: none; cursor: not-allowed; }
-        #payout-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #0b0f19; z-index: 40; display: none; flex-direction: column; padding: 25px 20px; justify-content: flex-start; gap: 25px; }
-        .payout-nav-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1f2937; padding-bottom: 15px; }
-        .back-nav-btn { background: #1f2937; border: none; color: #38bdf8; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        .hist-time { color: #4b5563; font-size: 11px; }
+        .bottom-controls { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+        .status-banner { font-size: 13px; text-align: center; color: #94a3b8; min-height: 40px; line-height: 1.4; }
+        .ad-spin-btn { width: 100%; padding: 16px; font-size: 16px; font-weight: 700; color: white; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: all 0.3s ease; }
+        .spin-ready-state { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; border: none !important; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important; }
+        #payout-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #080b11; z-index: 40; display: none; flex-direction: column; padding: 25px 20px; justify-content: flex-start; gap: 25px; }
+        .payout-nav-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 15px; }
+        .back-nav-btn { background: #1e293b; border: none; color: #38bdf8; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
         .payout-headline { font-size: 18px; font-weight: bold; }
         .payout-balance-display { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; padding: 20px; text-align: center; }
-        .big-balance { font-size: 32px; font-weight: 800; color: #22c55e; }
+        .big-balance { font-size: 32px; font-weight: 800; color: #10b981; }
         .withdraw-inputs { display: flex; flex-direction: column; gap: 15px; }
         .withdraw-inputs label { font-size: 13px; color: #94a3b8; }
         .withdraw-inputs select, .withdraw-inputs input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #374151; background: #1f2937; color: white; }
-        .withdraw-btn { width: 100%; padding: 15px; background: #22c55e; color: #0b0f19; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .withdraw-btn { width: 100%; padding: 15px; background: #10b981; color: #0b0f19; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -296,15 +307,13 @@
         </div>
 
         <div class="history-card">
-            <h4><span>Recent Activities</span><span style="cursor:pointer;color:#38bdf8;" onclick="clearUserHistory()">Clear</span></h4>
-            <div id="history-list-container" class="history-list">
-                <div class="history-item" style="color:#64748b; justify-content:center;">No history records found yet.</div>
-            </div>
+            <h4><span>Recent Activities</span></h4>
+            <div id="history-list-container" class="history-list"></div>
         </div>
 
         <div class="bottom-controls">
-            <div id="msg-banner" class="status-banner">Spins Remaining: 0.<br>Watch ad to get 1 free lucky spin!</div>
-            <button id="action-btn" class="ad-spin-btn" onclick="handleMainButtonClick()">🎬 Watch Ad to Earn 1 Spin</button>
+            <div id="msg-banner" class="status-banner">Loading App...</div>
+            <button id="action-btn" class="ad-spin-btn" onclick="handleMainButtonClick()">🎰 Connect Server</button>
         </div>
     </div>
 
