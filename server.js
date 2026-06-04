@@ -1,10 +1,15 @@
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
+const path = require('path'); // 🛠️ Fixed: Required for Vercel path management
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// 📁 Professional Static File Delivery Configuration
+// Yeh line aapki index.html aur baki frontend assets ko automatically active karegi
+app.use(express.static(path.join(__dirname, '/')));
 
 // 🔗 REAL MONGODB CLOUD LINK CONNECTED
 const MONGO_URI = "mongodb+srv://a82087028_db_user:hVIQmcWc3QTEyYSe@myfirstbotdb.fl783gi.mongodb.net/?appName=MyFirstBotDB";
@@ -128,6 +133,11 @@ app.post('/api/withdraw', async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, message: "Database pipeline exception." });
     }
+});
+
+// 🛠️ Fixed: Base routing target for root domain
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 // Auto-detect dynamic hosting ports (Render compatibility)
