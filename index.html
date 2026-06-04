@@ -3,83 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Spin</title>
+    <title>Crypto Spin Pro</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='11099294' data-sdk='show_11099294'></script>
     <style>
-        body { background: #080b11; color: white; text-align: center; font-family: sans-serif; margin: 0; padding: 20px; }
-        .stats { background: #1f2937; padding: 15px; border-radius: 15px; margin-bottom: 20px; border: 1px solid #374151; }
+        body { background: #080b11; color: white; text-align: center; font-family: sans-serif; margin: 0; padding: 10px; }
+        .header { background: #1f2937; padding: 15px; border-radius: 15px; display: flex; justify-content: space-around; margin-bottom: 20px; border: 1px solid #374151; }
         .wheel-container { position: relative; width: 280px; height: 280px; margin: 20px auto; }
         #wheel-svg { width: 100%; height: 100%; transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); }
-        .btn { padding: 15px; width: 100%; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #ef4444; z-index: 10; }
+        .btn { padding: 15px; width: 90%; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 8px; color: white; }
     </style>
-    <script>
-        const BACKEND_URL = window.location.origin;
-        let userId = "test_user_123";
-        let currentRotation = 0;
-
-        window.onload = () => {
-            let tg = window.Telegram.WebApp;
-            tg.ready();
-            if (tg.initDataUnsafe?.user) userId = String(tg.initDataUnsafe.user.id);
-            fetchUserData();
-        };
-
-        async function fetchUserData() {
-            let res = await fetch(`${BACKEND_URL}/api/user-data?userId=${userId}`);
-            let data = await res.json();
-            document.getElementById('coin-count').innerText = data.coins || 0;
-            document.getElementById('spin-count').innerText = data.spins || 0;
-        }
-
-        async function handleSpin() {
-            let res = await fetch(`${BACKEND_URL}/api/spin-wheel`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({userId})
-            });
-            let data = await res.json();
-            if(data.error) { alert(data.error); return; }
-            
-            currentRotation += (360 * 5) + (data.targetSector * 45);
-            document.getElementById('wheel-svg').style.transform = `rotate(${currentRotation}deg)`;
-            setTimeout(fetchUserData, 4000);
-        }
-
-        async function watchAd() {
-            if(typeof show_11099294 === 'function') {
-                show_11099294().then(async () => {
-                    await fetch(`${BACKEND_URL}/api/reward-ad`, {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({userId})
-                    });
-                    fetchUserData();
-                });
-            }
-        }
-    </script>
 </head>
 <body>
-    <h1>CRYPTO SPIN</h1>
-    <div class="stats">
-        <p>Coins: <span id="coin-count">0</span> | Spins: <span id="spin-count">0</span></p>
+
+    <div class="header">
+        <div>Coins: <span id="coins">0</span></div>
+        <div>Spins: <span id="spins">2</span></div>
+        <button onclick="alert('Withdraw feature active!')">Withdraw</button>
     </div>
+
     <div class="wheel-container">
+        <div class="pointer"></div>
         <svg id="wheel-svg" viewBox="0 0 300 300">
             <circle cx="150" cy="150" r="145" fill="#1f2937" stroke="#38bdf8" stroke-width="5"/>
             <path d="M150,150 L150,5 A145,145 0 0,1 252.5,47.5 Z" fill="#ef4444"/>
             <path d="M150,150 L252.5,47.5 A145,145 0 0,1 295,150 Z" fill="#3b82f6"/>
             <path d="M150,150 L295,150 A145,145 0 0,1 252.5,252.5 Z" fill="#10b981"/>
             <path d="M150,150 L252.5,252.5 A145,145 0 0,1 150,295 Z" fill="#f59e0b"/>
-            <path d="M150,150 L150,295 A145,145 0 0,1 47.5,252.5 Z" fill="#ec4899"/>
-            <path d="M150,150 L47.5,252.5 A145,145 0 0,1 5,150 Z" fill="#8b5cf6"/>
-            <path d="M150,150 L5,150 A145,145 0 0,1 47.5,47.5 Z" fill="#06b6d4"/>
-            <path d="M150,150 L47.5,47.5 A145,145 0 0,1 150,5 Z" fill="#f43f5e"/>
             <circle cx="150" cy="150" r="30" fill="#080b11"/>
+            <text x="150" y="158" text-anchor="middle" fill="white" font-weight="bold">SPIN</text>
         </svg>
     </div>
-    <button class="btn" style="background:#10b981;" onclick="handleSpin()">SPIN NOW</button>
-    <button class="btn" style="background:#3b82f6;" onclick="watchAd()">WATCH AD</button>
+
+    <button class="btn" style="background:#10b981" onclick="doSpin()">SPIN NOW</button>
+    <button class="btn" style="background:#3b82f6" onclick="watchAd()">WATCH AD (+1 SPIN)</button>
+
+    <script>
+        let coins = 0;
+        let spins = 2;
+        let rot = 0;
+
+        function doSpin() {
+            if (spins <= 0) return alert("No spins left!");
+            spins--;
+            let win = [50, 100, 200, 500][Math.floor(Math.random() * 4)];
+            coins += win;
+            rot += 1800 + (Math.floor(Math.random() * 4) * 90);
+            
+            document.getElementById('wheel-svg').style.transform = `rotate(${rot}deg)`;
+            document.getElementById('coins').innerText = coins;
+            document.getElementById('spins').innerText = spins;
+        }
+
+        async function watchAd() {
+            if(window.show_11099294) {
+                await window.show_11099294();
+                spins++;
+                document.getElementById('spins').innerText = spins;
+            }
+        }
+    </script>
 </body>
 </html>
