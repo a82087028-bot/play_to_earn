@@ -5,11 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Crypto Spin & Earn (Professional Cloud)</title>
 
+    <!-- 📱 Telegram WebApp Official SDK (Must be loaded first) -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
     <!-- 🎬 Monetag Official SDK Integration for Telegram Mini App -->
     <script src='//libtl.com/sdk.js' data-zone='11099294' data-sdk='show_11099294'></script>
 
     <script>
-        let telegramUserId = "123456789"; // Live hone par yeh auto Telegram ID uthayega
+        let telegramUserId = "test_user_123"; // Fallback ID for browser testing
         let walletCoins = 0;
         let availableSpins = 0;
         let isProcessing = false;
@@ -19,12 +22,36 @@
         const MIN_CRYPTO_WITHDRAW = 20000; 
         const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
         
-        // 🚀 Vercel Deployment Optimization: Auto-detects domain URL paths smoothly
-        const BACKEND_URL = window.location.origin; 
+        // 🚀 Fixed Vercel Backend URL Blueprint
+        const BACKEND_URL = "https://play-to-earn-rho.vercel.app"; 
 
-        window.onload = function() {
+        // 🛠️ Dynamic Data Binder initialization inside Telegram context
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand(); 
+                
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                    telegramUserId = tg.initDataUnsafe.user.id.toString();
+                }
+            }
             fetchUserData();
-        };
+
+            // 🎬 Format 3: Automatic In-App Interstitial Trigger Sequence
+            if (typeof show_11099294 === 'function') {
+                show_11099294({
+                  type: 'inApp',
+                  inAppSettings: {
+                    frequency: 2,
+                    capping: 0.1,
+                    interval: 30,
+                    timeout: 5,
+                    everyPage: false
+                  }
+                });
+            }
+        });
 
         async function fetchUserData() {
             try {
@@ -83,17 +110,15 @@
             }
         }
 
-        // 📺 Optimized Monetag SDK Trigger Mechanism
+        // 📺 Format 1: Rewarded Video Interstitial (For Free Spins)
         function showMonetagVideoAd() {
             isProcessing = true;
             const btn = document.getElementById('action-btn');
             if(btn) btn.disabled = true;
             document.getElementById('msg-banner').innerText = "⏳ Loading Video Ad...";
 
-            // Check if Monetag SDK function is ready in window context
             if (typeof show_11099294 === 'function') {
                 show_11099294().then(async () => {
-                    // Trigger backend routing pipeline when user watches complete video
                     await claimAdRewardOnBackend();
                 }).catch((err) => {
                     console.error("Monetag display error or skipped:", err);
@@ -101,17 +126,14 @@
                     resetStateControls();
                 });
             } else {
-                // Secure Sandbox Fallback Handler for local testing environments
-                console.log("Monetag environment not initialized yet. Processing simulation reward...");
+                console.log("Monetag environment simulation processing...");
                 setTimeout(async () => {
                     await claimAdRewardOnBackend();
                 }, 2000);
             }
         }
 
-        // Secure backend dispatcher logic for Ad Rewards
         async function claimAdRewardOnBackend() {
-            const btn = document.getElementById('action-btn');
             try {
                 let res = await fetch(`${BACKEND_URL}/api/reward-ad`, {
                     method: 'POST',
@@ -127,7 +149,7 @@
                     document.getElementById('msg-banner').innerHTML = `🎬 Ad Reward Confirmed by Server!`;
                 }
             } catch (e) {
-                alert("Server error processing ad reward validation registry.");
+                alert("Server error processing ad reward validation.");
             }
             resetStateControls();
         }
@@ -196,7 +218,8 @@
             }
         }
 
-        async function processCryptoPayout() {
+        // 🎬 Format 2: Rewarded Popup Handler (Triggers Before Withdrawal Process)
+        function processCryptoPayout() {
             if (walletCoins < MIN_CRYPTO_WITHDRAW) {
                 alert(`⚠️ Error: Minimum 20,000 Coins required.`);
                 return;
@@ -206,9 +229,22 @@
                 alert("⚠️ Error: Check entry address validity.");
                 return;
             }
-            
-            const selectedAsset = document.getElementById('crypto-asset').value;
 
+            if (typeof show_11099294 === 'function') {
+                document.getElementById('msg-banner').innerText = "⏳ Verifying secure gateway popup...";
+                show_11099294('pop').then(() => {
+                    executeBackendWithdrawalRequest(targetAddress);
+                }).catch(e => {
+                    console.error("Popup monetization pipeline error:", e);
+                    executeBackendWithdrawalRequest(targetAddress);
+                });
+            } else {
+                executeBackendWithdrawalRequest(targetAddress);
+            }
+        }
+
+        async function executeBackendWithdrawalRequest(targetAddress) {
+            const selectedAsset = document.getElementById('crypto-asset').value;
             if (confirm(`Confirm Payout Request?`)) {
                 try {
                     let res = await fetch(`${BACKEND_URL}/api/withdraw`, {
@@ -355,14 +391,14 @@
                 <select id="crypto-asset" style="margin-top:6px;">
                     <option value="USDT">USDT (Network: TRC20)</option>
                     <option value="TRX">TRX (Network: TRON)</option>
-                    <option value="TON">TON (Network: TON Space)</option>
+                    <option value="TON">TON (Network: TON Ecosystem)</option>
                 </select>
             </div>
             <div>
-                <label>Wallet Address Destination</label>
-                <input type="text" id="wallet-address" placeholder="Paste your address here" style="margin-top:6px;">
+                <label>Receiver Destination Wallet Address</label>
+                <input type="text" id="wallet-address" placeholder="Paste your crypto wallet address here..." style="margin-top:6px;">
             </div>
-            <button class="withdraw-btn" onclick="processCryptoPayout()">Claim Payout</button>
+            <button class="withdraw-btn" onclick="processCryptoPayout()">💸 Request Secure Withdrawal</button>
         </div>
     </div>
 </div>
