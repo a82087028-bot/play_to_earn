@@ -6,40 +6,29 @@
     <title>Crypto Spin</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src='//libtl.com/sdk.js' data-zone='11099294' data-sdk='show_11099294'></script>
-    
     <script>
         const BACKEND_URL = window.location.origin;
         let userId = "test_user_123";
 
-        // Telegram aur SDK Ready hone ka intezar karein
-        window.Telegram.WebApp.ready();
-        
-        async function initApp() {
+        window.onload = () => {
             let tg = window.Telegram.WebApp;
+            tg.ready();
             if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
                 userId = String(tg.initDataUnsafe.user.id);
             }
-            
-            // UI elements ko initialize karein
-            document.getElementById('msg-banner').innerText = "App Ready! Loading data...";
-            await fetchUserData();
-        }
+            fetchUserData();
+        };
 
         async function fetchUserData() {
             try {
-                let response = await fetch(`${BACKEND_URL}/api/user-data?userId=${userId}`);
-                let data = await response.json();
-                
+                let res = await fetch(`${BACKEND_URL}/api/user-data?userId=${userId}`);
+                let data = await res.json();
                 document.getElementById('coin-count').innerText = data.coins || 0;
                 document.getElementById('spin-count').innerText = data.spins || 0;
-                document.getElementById('msg-banner').innerText = "Welcome back, Spinner!";
-            } catch (e) {
-                document.getElementById('msg-banner').innerText = "Error loading data.";
-            }
+            } catch (e) { console.error(e); }
         }
 
         async function handleSpin() {
-            document.getElementById('msg-banner').innerText = "Spinning...";
             let res = await fetch(`${BACKEND_URL}/api/spin-wheel`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -47,15 +36,11 @@
             });
             let data = await res.json();
             if(data.error) alert(data.error);
-            else {
-                fetchUserData();
-                document.getElementById('msg-banner').innerText = "Spin complete!";
-            }
+            else fetchUserData();
         }
 
         async function watchAd() {
             if(typeof show_11099294 === 'function') {
-                document.getElementById('msg-banner').innerText = "Loading Ad...";
                 show_11099294().then(async () => {
                     await fetch(`${BACKEND_URL}/api/reward-ad`, {
                         method: 'POST',
@@ -63,26 +48,30 @@
                         body: JSON.stringify({userId})
                     });
                     fetchUserData();
-                }).catch(() => document.getElementById('msg-banner').innerText = "Ad closed.");
-            } else {
-                alert("Ad SDK not loaded yet.");
+                });
             }
         }
-
-        window.onload = initApp;
     </script>
+    <style>
+        body { background: #080b11; color: white; text-align: center; font-family: sans-serif; }
+        .stats { background: #1f2937; padding: 20px; border-radius: 15px; margin: 20px; }
+        button { padding: 15px 30px; border-radius: 10px; border: none; cursor: pointer; font-weight: bold; margin: 5px; }
+        .spin-btn { background: #10b981; color: white; }
+        .ad-btn { background: #3b82f6; color: white; }
+    </style>
 </head>
-<body style="background:#080b11; color:white; font-family:sans-serif; text-align:center; padding:20px;">
+<body>
     <h1>CRYPTO SPIN</h1>
-    
-    <div id="msg-banner" style="color:yellow; margin:10px 0; font-size:14px;">Initializing...</div>
-
-    <div style="background:#1f2937; padding:15px; border-radius:10px; margin-bottom:20px;">
-        <p>Coins: <span id="coin-count">0</span></p>
+    <div class="stats">
+        <p>Coins: <span id="coin-count">0</span> C</p>
         <p>Spins: <span id="spin-count">0</span></p>
     </div>
     
-    <button onclick="handleSpin()" style="padding:15px; width:100%; background:#059669; color:white; border:none; border-radius:5px; margin-bottom:10px;">SPIN NOW</button>
-    <button onclick="watchAd()" style="padding:15px; width:100%; background:#2563eb; color:white; border:none; border-radius:5px;">WATCH AD (+1 SPIN)</button>
+    <div style="width: 200px; height: 200px; border: 5px solid white; border-radius: 50%; margin: 20px auto; display: flex; align-items: center; justify-content: center;">
+        WHEEL HERE
+    </div>
+
+    <button class="spin-btn" onclick="handleSpin()">SPIN NOW</button>
+    <button class="ad-btn" onclick="watchAd()">WATCH AD</button>
 </body>
 </html>
