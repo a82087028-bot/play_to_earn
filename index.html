@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Crypto Spin & Earn (Professional Cloud)</title>
+    <title>Crypto Spin & Earn</title>
 
-    <!-- 📱 Telegram WebApp Official SDK (Must be loaded first) -->
+    <!-- 📱 Telegram WebApp Official SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <!-- 🎬 Monetag Official SDK Integration for Telegram Mini App -->
+    <!-- 🎬 Monetag Official SDK Integration -->
     <script src='//libtl.com/sdk.js' data-zone='11099294' data-sdk='show_11099294'></script>
 
     <script>
-        let telegramUserId = "test_user_123"; // Fallback ID for browser testing
+        // Secure Fallback for Telegram User ID
+        let telegramUserId = "test_user_123"; 
         let walletCoins = 0;
         let availableSpins = 0;
         let isProcessing = false;
@@ -22,23 +23,28 @@
         const MIN_CRYPTO_WITHDRAW = 20000; 
         const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
         
-        // 🚀 Fixed Vercel Backend URL Blueprint
         const BACKEND_URL = "https://play-to-earn-rho.vercel.app"; 
 
-        // 🛠️ Dynamic Data Binder initialization inside Telegram context
         window.addEventListener('DOMContentLoaded', () => {
+            // Initialize Telegram SDK carefully
             if (window.Telegram && window.Telegram.WebApp) {
                 const tg = window.Telegram.WebApp;
                 tg.ready();
                 tg.expand(); 
                 
-                if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-                    telegramUserId = tg.initDataUnsafe.user.id.toString();
+                if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+                    telegramUserId = String(tg.initDataUnsafe.user.id);
+                } else if (tg.initData && tg.initData.includes("id=")) {
+                    // Backup regex parsing if initDataUnsafe object delays
+                    const match = tg.initData.match(/id%22%3A(\d+)/) || tg.initData.match(/id":(\d+)/);
+                    if (match && match[1]) telegramUserId = String(match[1]);
                 }
             }
+            
+            // Fetch clean records from server
             fetchUserData();
 
-            // 🎬 Format 3: Automatic In-App Interstitial Trigger Sequence
+            // 🎬 Format 3: Automatic In-App Interstitial
             if (typeof show_11099294 === 'function') {
                 show_11099294({
                   type: 'inApp',
@@ -57,13 +63,20 @@
             try {
                 let response = await fetch(`${BACKEND_URL}/api/user-data?userId=${telegramUserId}`);
                 let data = await response.json();
-                walletCoins = data.coins;
-                availableSpins = data.spins;
+                
+                // Fallback handling to ensure numbers are never undefined or NaN
+                walletCoins = Number(data.coins) || 0;
+                availableSpins = Number(data.spins) || 0;
+                
                 updateDashboard();
-                renderHistory(data.history);
+                if (data.history) renderHistory(data.history);
             } catch (err) {
                 console.error("Backend offline ya connecting issue:", err);
-                document.getElementById('msg-banner').innerText = "❌ Connecting to server failed...";
+                document.getElementById('msg-banner').innerText = "❌ Connection failed. Retrying...";
+                // Fallback rendering to eliminate undefined display
+                walletCoins = 0;
+                availableSpins = 0;
+                updateDashboard();
             }
         }
 
@@ -110,7 +123,7 @@
             }
         }
 
-        // 📺 Format 1: Rewarded Video Interstitial (For Free Spins)
+        // 📺 Format 1: Rewarded Video Interstitial
         function showMonetagVideoAd() {
             isProcessing = true;
             const btn = document.getElementById('action-btn');
@@ -121,12 +134,12 @@
                 show_11099294().then(async () => {
                     await claimAdRewardOnBackend();
                 }).catch((err) => {
-                    console.error("Monetag display error or skipped:", err);
-                    alert("Ad skipped or failed to load. Please try again to receive reward!");
+                    console.error("Monetag display error:", err);
+                    alert("Ad failed to verify. Please try again!");
                     resetStateControls();
                 });
             } else {
-                console.log("Monetag environment simulation processing...");
+                // Local testing simulation override
                 setTimeout(async () => {
                     await claimAdRewardOnBackend();
                 }, 2000);
@@ -145,11 +158,11 @@
                 if (data.error) {
                     alert(data.error);
                 } else {
-                    availableSpins = data.spins;
-                    document.getElementById('msg-banner').innerHTML = `🎬 Ad Reward Confirmed by Server!`;
+                    availableSpins = Number(data.spins) || 0;
+                    document.getElementById('msg-banner').innerHTML = `🎬 Ad Reward Confirmed!`;
                 }
             } catch (e) {
-                alert("Server error processing ad reward validation.");
+                alert("Server validation failed. Please check network.");
             }
             resetStateControls();
         }
@@ -165,8 +178,10 @@
         async function triggerLuckySpinFromServer() {
             isProcessing = true;
             const btn = document.getElementById('action-btn');
-            btn.disabled = true;
-            btn.classList.remove('spin-ready-state');
+            if(btn) {
+                btn.disabled = true;
+                btn.classList.remove('spin-ready-state');
+            }
             
             document.getElementById('msg-banner').innerText = "🔮 Calculating your luck on server...";
 
@@ -187,7 +202,7 @@
                 }
 
                 let targetSector = data.targetSector;
-                availableSpins = data.remainingSpins;
+                availableSpins = Number(data.remainingSpins) || 0;
 
                 const sectorAngle = 45;
                 const centerOfSectorOffset = 22.5; 
@@ -201,13 +216,13 @@
                 if(wheel) wheel.style.transform = `rotate(${currentRotation}deg)`;
 
                 setTimeout(() => {
-                    walletCoins = data.newBalance;
+                    walletCoins = Number(data.newBalance) || 0;
                     isProcessing = false;
                     if(btn) btn.disabled = false;
                     updateDashboard();
                     
                     document.getElementById('msg-banner').innerHTML = `🎉 Winner! Received <b>+${prizeRewards[targetSector]} Coins</b>!`;
-                    renderHistory(data.history);
+                    if(data.history) renderHistory(data.history);
                 }, 4600);
 
             } catch (err) {
@@ -218,7 +233,7 @@
             }
         }
 
-        // 🎬 Format 2: Rewarded Popup Handler (Triggers Before Withdrawal Process)
+        // 🎬 Format 2: Rewarded Popup Handler
         function processCryptoPayout() {
             if (walletCoins < MIN_CRYPTO_WITHDRAW) {
                 alert(`⚠️ Error: Minimum 20,000 Coins required.`);
@@ -235,7 +250,7 @@
                 show_11099294('pop').then(() => {
                     executeBackendWithdrawalRequest(targetAddress);
                 }).catch(e => {
-                    console.error("Popup monetization pipeline error:", e);
+                    console.error("Popup error:", e);
                     executeBackendWithdrawalRequest(targetAddress);
                 });
             } else {
@@ -256,9 +271,9 @@
                     
                     if(data.success) {
                         alert(`✅ Payout Request Registered Successfully!`);
-                        walletCoins = data.newBalance;
+                        walletCoins = Number(data.newBalance) || 0;
                         updateDashboard();
-                        renderHistory(data.history);
+                        if(data.history) renderHistory(data.history);
                         navigateToGameScreen();
                     } else {
                         alert("Error: " + data.message);
@@ -370,7 +385,7 @@
         </div>
 
         <div class="bottom-controls">
-            <div id="msg-banner" class="status-banner">Loading App...</div>
+            <div id="msg-banner" class="status-banner">Connecting Secure Gateway...</div>
             <button id="action-btn" class="ad-spin-btn" onclick="handleMainButtonClick()">🎬 Watch Ad to Earn 1 Spin</button>
         </div>
     </div>
