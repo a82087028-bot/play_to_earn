@@ -2,421 +2,87 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Crypto Spin & Earn</title>
-
-    <!-- 📱 Telegram WebApp Official SDK -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Spin</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-    <!-- 🎬 Monetag Official SDK Integration -->
     <script src='//libtl.com/sdk.js' data-zone='11099294' data-sdk='show_11099294'></script>
-
+    
     <script>
-        // Secure Fallback for Telegram User ID
-        let telegramUserId = "test_user_123"; 
-        let walletCoins = 0;
-        let availableSpins = 0;
-        let isProcessing = false;
-        let currentRotation = 0; 
-        
-        const TO_USD_RATE = 20000; 
-        const MIN_CRYPTO_WITHDRAW = 20000; 
-        const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
-        
-        const BACKEND_URL = "https://play-to-earn-rho.vercel.app"; 
+        const BACKEND_URL = window.location.origin;
+        let userId = "test_user_123";
 
-        window.addEventListener('DOMContentLoaded', () => {
-            // Initialize Telegram SDK carefully
-            if (window.Telegram && window.Telegram.WebApp) {
-                const tg = window.Telegram.WebApp;
-                tg.ready();
-                tg.expand(); 
-                
-                if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-                    telegramUserId = String(tg.initDataUnsafe.user.id);
-                } else if (tg.initData && tg.initData.includes("id=")) {
-                    // Backup regex parsing if initDataUnsafe object delays
-                    const match = tg.initData.match(/id%22%3A(\d+)/) || tg.initData.match(/id":(\d+)/);
-                    if (match && match[1]) telegramUserId = String(match[1]);
-                }
+        // Telegram aur SDK Ready hone ka intezar karein
+        window.Telegram.WebApp.ready();
+        
+        async function initApp() {
+            let tg = window.Telegram.WebApp;
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                userId = String(tg.initDataUnsafe.user.id);
             }
             
-            // Fetch clean records from server
-            fetchUserData();
-
-            // 🎬 Format 3: Automatic In-App Interstitial
-            if (typeof show_11099294 === 'function') {
-                show_11099294({
-                  type: 'inApp',
-                  inAppSettings: {
-                    frequency: 2,
-                    capping: 0.1,
-                    interval: 30,
-                    timeout: 5,
-                    everyPage: false
-                  }
-                });
-            }
-        });
+            // UI elements ko initialize karein
+            document.getElementById('msg-banner').innerText = "App Ready! Loading data...";
+            await fetchUserData();
+        }
 
         async function fetchUserData() {
             try {
-                let response = await fetch(`${BACKEND_URL}/api/user-data?userId=${telegramUserId}`);
+                let response = await fetch(`${BACKEND_URL}/api/user-data?userId=${userId}`);
                 let data = await response.json();
                 
-                // Fallback handling to ensure numbers are never undefined or NaN
-                walletCoins = Number(data.coins) || 0;
-                availableSpins = Number(data.spins) || 0;
-                
-                updateDashboard();
-                if (data.history) renderHistory(data.history);
-            } catch (err) {
-                console.error("Backend offline ya connecting issue:", err);
-                document.getElementById('msg-banner').innerText = "❌ Connection failed. Retrying...";
-                // Fallback rendering to eliminate undefined display
-                walletCoins = 0;
-                availableSpins = 0;
-                updateDashboard();
-            }
-        }
-
-        function navigateToPayoutScreen() {
-            document.getElementById('wheel-screen').style.display = 'none';
-            document.getElementById('payout-screen').style.display = 'flex';
-        }
-        
-        function navigateToGameScreen() {
-            document.getElementById('payout-screen').style.display = 'none';
-            document.getElementById('wheel-screen').style.display = 'flex';
-        }
-
-        function updateDashboard() {
-            document.getElementById('coin-count').innerText = walletCoins;
-            let usdVal = (walletCoins / TO_USD_RATE).toFixed(3);
-            document.getElementById('cash-count').innerText = usdVal;
-            document.getElementById('payout-cash-count').innerText = usdVal;
-            updateButtonUI();
-        }
-
-        function updateButtonUI() {
-            const btn = document.getElementById('action-btn');
-            const banner = document.getElementById('msg-banner');
-            if (isProcessing || !btn) return;
-
-            if (availableSpins > 0) {
-                btn.innerText = "🎰 Tap to Spin Wheel!";
-                btn.classList.add('spin-ready-state');
-                banner.innerHTML = `✨ Spin Ready! You have <b>${availableSpins} spin</b> available.`;
-            } else {
-                btn.innerText = "🎬 Watch Ad to Earn 1 Spin";
-                btn.classList.remove('spin-ready-state');
-                banner.innerHTML = "Spins Remaining: 0.<br>Watch ad to get 1 free lucky spin!";
-            }
-        }
-
-        function handleMainButtonClick() {
-            if (isProcessing) return;
-            if (availableSpins > 0) {
-                triggerLuckySpinFromServer();
-            } else {
-                showMonetagVideoAd();
-            }
-        }
-
-        // 📺 Format 1: Rewarded Video Interstitial
-        function showMonetagVideoAd() {
-            isProcessing = true;
-            const btn = document.getElementById('action-btn');
-            if(btn) btn.disabled = true;
-            document.getElementById('msg-banner').innerText = "⏳ Loading Video Ad...";
-
-            if (typeof show_11099294 === 'function') {
-                show_11099294().then(async () => {
-                    await claimAdRewardOnBackend();
-                }).catch((err) => {
-                    console.error("Monetag display error:", err);
-                    alert("Ad failed to verify. Please try again!");
-                    resetStateControls();
-                });
-            } else {
-                // Local testing simulation override
-                setTimeout(async () => {
-                    await claimAdRewardOnBackend();
-                }, 2000);
-            }
-        }
-
-        async function claimAdRewardOnBackend() {
-            try {
-                let res = await fetch(`${BACKEND_URL}/api/reward-ad`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: telegramUserId })
-                });
-                let data = await res.json();
-                
-                if (data.error) {
-                    alert(data.error);
-                } else {
-                    availableSpins = Number(data.spins) || 0;
-                    document.getElementById('msg-banner').innerHTML = `🎬 Ad Reward Confirmed!`;
-                }
+                document.getElementById('coin-count').innerText = data.coins || 0;
+                document.getElementById('spin-count').innerText = data.spins || 0;
+                document.getElementById('msg-banner').innerText = "Welcome back, Spinner!";
             } catch (e) {
-                alert("Server validation failed. Please check network.");
-            }
-            resetStateControls();
-        }
-
-        function resetStateControls() {
-            isProcessing = false;
-            const btn = document.getElementById('action-btn');
-            if(btn) btn.disabled = false;
-            updateDashboard();
-            updateButtonUI();
-        }
-
-        async function triggerLuckySpinFromServer() {
-            isProcessing = true;
-            const btn = document.getElementById('action-btn');
-            if(btn) {
-                btn.disabled = true;
-                btn.classList.remove('spin-ready-state');
-            }
-            
-            document.getElementById('msg-banner').innerText = "🔮 Calculating your luck on server...";
-
-            try {
-                let res = await fetch(`${BACKEND_URL}/api/spin-wheel`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: telegramUserId })
-                });
-                let data = await res.json();
-                
-                if(data.error) {
-                    alert(data.error);
-                    isProcessing = false;
-                    if(btn) btn.disabled = false;
-                    fetchUserData();
-                    return;
-                }
-
-                let targetSector = data.targetSector;
-                availableSpins = Number(data.remainingSpins) || 0;
-
-                const sectorAngle = 45;
-                const centerOfSectorOffset = 22.5; 
-                const targetDegrees = (360 - (targetSector * sectorAngle) - centerOfSectorOffset) % 360;
-                const minimumSpins = 6; 
-                const additionalDegrees = (minimumSpins * 360) + targetDegrees;
-                const currentSpinRemainder = currentRotation % 360;
-                currentRotation += additionalDegrees - currentSpinRemainder;
-
-                const wheel = document.getElementById('wheel-svg');
-                if(wheel) wheel.style.transform = `rotate(${currentRotation}deg)`;
-
-                setTimeout(() => {
-                    walletCoins = Number(data.newBalance) || 0;
-                    isProcessing = false;
-                    if(btn) btn.disabled = false;
-                    updateDashboard();
-                    
-                    document.getElementById('msg-banner').innerHTML = `🎉 Winner! Received <b>+${prizeRewards[targetSector]} Coins</b>!`;
-                    if(data.history) renderHistory(data.history);
-                }, 4600);
-
-            } catch (err) {
-                alert("Connection Error. Unable to spin.");
-                isProcessing = false;
-                if(btn) btn.disabled = false;
-                updateButtonUI();
+                document.getElementById('msg-banner').innerText = "Error loading data.";
             }
         }
 
-        // 🎬 Format 2: Rewarded Popup Handler
-        function processCryptoPayout() {
-            if (walletCoins < MIN_CRYPTO_WITHDRAW) {
-                alert(`⚠️ Error: Minimum 20,000 Coins required.`);
-                return;
-            }
-            const targetAddress = document.getElementById('wallet-address').value.trim();
-            if(!targetAddress || targetAddress.length < 10) {
-                alert("⚠️ Error: Check entry address validity.");
-                return;
-            }
-
-            if (typeof show_11099294 === 'function') {
-                document.getElementById('msg-banner').innerText = "⏳ Verifying secure gateway popup...";
-                show_11099294('pop').then(() => {
-                    executeBackendWithdrawalRequest(targetAddress);
-                }).catch(e => {
-                    console.error("Popup error:", e);
-                    executeBackendWithdrawalRequest(targetAddress);
-                });
-            } else {
-                executeBackendWithdrawalRequest(targetAddress);
+        async function handleSpin() {
+            document.getElementById('msg-banner').innerText = "Spinning...";
+            let res = await fetch(`${BACKEND_URL}/api/spin-wheel`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({userId})
+            });
+            let data = await res.json();
+            if(data.error) alert(data.error);
+            else {
+                fetchUserData();
+                document.getElementById('msg-banner').innerText = "Spin complete!";
             }
         }
 
-        async function executeBackendWithdrawalRequest(targetAddress) {
-            const selectedAsset = document.getElementById('crypto-asset').value;
-            if (confirm(`Confirm Payout Request?`)) {
-                try {
-                    let res = await fetch(`${BACKEND_URL}/api/withdraw`, {
+        async function watchAd() {
+            if(typeof show_11099294 === 'function') {
+                document.getElementById('msg-banner').innerText = "Loading Ad...";
+                show_11099294().then(async () => {
+                    await fetch(`${BACKEND_URL}/api/reward-ad`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: telegramUserId, address: targetAddress, asset: selectedAsset })
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({userId})
                     });
-                    let data = await res.json();
-                    
-                    if(data.success) {
-                        alert(`✅ Payout Request Registered Successfully!`);
-                        walletCoins = Number(data.newBalance) || 0;
-                        updateDashboard();
-                        if(data.history) renderHistory(data.history);
-                        navigateToGameScreen();
-                    } else {
-                        alert("Error: " + data.message);
-                    }
-                } catch(e) {
-                    alert("Database connection failed during payout.");
-                }
+                    fetchUserData();
+                }).catch(() => document.getElementById('msg-banner').innerText = "Ad closed.");
+            } else {
+                alert("Ad SDK not loaded yet.");
             }
         }
 
-        function renderHistory(historyArray) {
-            const container = document.getElementById('history-list-container');
-            if(!container) return;
-            if(!historyArray || historyArray.length === 0) {
-                container.innerHTML = `<div class="history-item" style="color:#64748b; justify-content:center;">No history records found.</div>`;
-                return;
-            }
-            container.innerHTML = historyArray.map(item => `
-                <div class="history-item">
-                    <span class="hist-type">${item.type}</span>
-                    <span class="hist-time">${item.time}</span>
-                    <span class="${item.status === 'win' ? 'hist-amount-win' : 'hist-amount-out'}">${item.amount}</span>
-                </div>
-            `).join('');
-        }
+        window.onload = initApp;
     </script>
-
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
-        body, html { width: 100%; height: 100%; background-color: #080b11; font-family: -apple-system, sans-serif; color: white; overflow: hidden; }
-        #game-container { width: 100%; max-width: 450px; height: 100%; margin: 0 auto; background: radial-gradient(circle at top, #1e293b 0%, #080b11 100%); box-shadow: 0 0 40px rgba(0,0,0,0.8); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 20px; position: relative; }
-        #wheel-screen { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: space-between; }
-        .header-ui { width: 100%; display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.04); padding: 14px; border-radius: 16px; border: 1px solid rgba(255, 255, 255, 0.08); backdrop-filter: blur(10px); }
-        .app-title { font-size: 14px; font-weight: 800; color: #38bdf8; letter-spacing: 1px; }
-        .stats-group { display: flex; align-items: center; gap: 8px; }
-        .coin-box { color: #f59e0b; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 12px; }
-        .cash-box { color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 12px; }
-        .nav-withdraw-btn { font-size: 12px; font-weight: bold; color: #ffffff; background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); padding: 6px 14px; border-radius: 12px; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(2,132,199,0.3); }
-        .wheel-outer-ring { position: relative; width: 300px; height: 300px; border-radius: 50%; border: 6px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 20px rgba(56, 189, 248, 0.2); margin: 20px 0; background-color: #1e293b; flex-shrink: 0; }
-        .wheel-pointer { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 26px solid #ef4444; z-index: 30; filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.3)); }
-        #wheel-svg { width: 100%; height: 100%; border-radius: 50%; transition: transform 4.5s cubic-bezier(0.1, 0.8, 0.1, 1); }
-        .slice-text { font-weight: 800; font-size: 15px; fill: white; }
-        .wheel-center-cap { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 58px; height: 58px; background: #080b11; border: 4px solid #38bdf8; border-radius: 50%; z-index: 25; display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: 0 0 15px rgba(56, 189, 248, 0.5); }
-        .history-card { width: 100%; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 12px; max-height: 120px; overflow-y: auto; }
-        .history-card h4 { font-size: 12px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; display: flex; justify-content: space-between; }
-        .history-list { display: flex; flex-direction: column; gap: 6px; }
-        .history-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding: 6px 10px; background: rgba(255, 255, 255, 0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.02); }
-        .hist-type { font-weight: 600; }
-        .hist-amount-win { color: #10b981; font-weight: bold; }
-        .hist-amount-out { color: #ef4444; font-weight: bold; }
-        .hist-time { color: #4b5563; font-size: 11px; }
-        .bottom-controls { width: 100%; display: flex; flex-direction: column; gap: 12px; }
-        .status-banner { font-size: 13px; text-align: center; color: #94a3b8; min-height: 40px; line-height: 1.4; }
-        .ad-spin-btn { width: 100%; padding: 16px; font-size: 16px; font-weight: 700; color: white; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: all 0.3s ease; }
-        .spin-ready-state { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; border: none !important; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3) !important; }
-        #payout-screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #080b11; z-index: 40; display: none; flex-direction: column; padding: 25px 20px; justify-content: flex-start; gap: 25px; }
-        .payout-nav-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #1e293b; padding-bottom: 15px; }
-        .back-nav-btn { background: #1e293b; border: none; color: #38bdf8; padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .payout-headline { font-size: 18px; font-weight: bold; }
-        .payout-balance-display { background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px; padding: 20px; text-align: center; }
-        .big-balance { font-size: 32px; font-weight: 800; color: #10b981; }
-        .withdraw-inputs { display: flex; flex-direction: column; gap: 15px; }
-        .withdraw-inputs label { font-size: 13px; color: #94a3b8; }
-        .withdraw-inputs select, .withdraw-inputs input { width: 100%; padding: 14px; border-radius: 10px; border: 1px solid #374151; background: #1f2937; color: white; }
-        .withdraw-btn { width: 100%; padding: 15px; background: #10b981; color: #0b0f19; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
-    </style>
 </head>
-<body>
+<body style="background:#080b11; color:white; font-family:sans-serif; text-align:center; padding:20px;">
+    <h1>CRYPTO SPIN</h1>
+    
+    <div id="msg-banner" style="color:yellow; margin:10px 0; font-size:14px;">Initializing...</div>
 
-<div id="game-container">
-    <div id="wheel-screen">
-        <div class="header-ui">
-            <div class="app-title">CRYPTO SPIN</div>
-            <div class="stats-group">
-                <div class="coin-box"><span id="coin-count">0</span> C</div>
-                <div class="cash-box"><span id="cash-count">0.000</span> $</div>
-                <div class="nav-withdraw-btn" onclick="navigateToPayoutScreen()">Withdraw</div>
-            </div>
-        </div>
-
-        <div class="wheel-outer-ring">
-            <div class="wheel-pointer"></div>
-            <svg id="wheel-svg" viewBox="0 0 300 300">
-                <path d="M150,150 L150,0 A150,150 0 0,1 256.06,43.93 Z" fill="#ef4444"/>
-                <path d="M150,150 L256.06,43.93 A150,150 0 0,1 300,150 Z" fill="#3b82f6"/>
-                <path d="M150,150 L300,150 A150,150 0 0,1 256.06,256.06 Z" fill="#10b981"/>
-                <path d="M150,150 L256.06,256.06 A150,150 0 0,1 150,300 Z" fill="#f59e0b"/>
-                <path d="M150,150 L150,300 A150,150 0 0,1 43.93,256.06 Z" fill="#ec4899"/>
-                <path d="M150,150 L43.93,256.06 A150,150 0 0,1 0,150 Z" fill="#8b5cf6"/>
-                <path d="M150,150 L0,150 A150,150 0 0,1 43.93,43.93 Z" fill="#06b6d4"/>
-                <path d="M150,150 L43.93,43.93 A150,150 0 0,1 150,0 Z" fill="#f43f5e"/>
-                <g class="slice-text">
-                    <text transform="translate(185, 65) rotate(22.5)">50</text>
-                    <text transform="translate(235, 115) rotate(67.5)">1000</text>
-                    <text transform="translate(235, 185) rotate(112.5)">300</text>
-                    <text transform="translate(185, 235) rotate(157.5)">150</text>
-                    <text transform="translate(115, 235) rotate(202.5)">75</text>
-                    <text transform="translate(65, 185) rotate(247.5)">500</text>
-                    <text transform="translate(65, 115) rotate(292.5)">250</text>
-                    <text transform="translate(115, 65) rotate(337.5)">100</text>
-                </g>
-            </svg>
-            <div class="wheel-center-cap">💎</div>
-        </div>
-
-        <div class="history-card">
-            <h4><span>Recent Activities</span></h4>
-            <div id="history-list-container" class="history-list"></div>
-        </div>
-
-        <div class="bottom-controls">
-            <div id="msg-banner" class="status-banner">Connecting Secure Gateway...</div>
-            <button id="action-btn" class="ad-spin-btn" onclick="handleMainButtonClick()">🎬 Watch Ad to Earn 1 Spin</button>
-        </div>
+    <div style="background:#1f2937; padding:15px; border-radius:10px; margin-bottom:20px;">
+        <p>Coins: <span id="coin-count">0</span></p>
+        <p>Spins: <span id="spin-count">0</span></p>
     </div>
-
-    <div id="payout-screen">
-        <div class="payout-nav-header">
-            <button class="back-nav-btn" onclick="navigateToGameScreen()">⬅ Back</button>
-            <div class="payout-headline">Crypto Cashout</div>
-        </div>
-        <div class="payout-balance-display">
-            <div style="font-size:13px; color:#94a3b8;">Your Current Redeemable Value</div>
-            <div class="big-balance"><span id="payout-cash-count">0.000</span> USD</div>
-            <div style="font-size:11px; color:#64748b; margin-top:5px;">Min Payout Threshold: 20,000 Coins ($0.005 per 100)</div>
-        </div>
-        <div class="withdraw-inputs">
-            <div>
-                <label>Select Crypto Asset Network</label>
-                <select id="crypto-asset" style="margin-top:6px;">
-                    <option value="USDT">USDT (Network: TRC20)</option>
-                    <option value="TRX">TRX (Network: TRON)</option>
-                    <option value="TON">TON (Network: TON Ecosystem)</option>
-                </select>
-            </div>
-            <div>
-                <label>Receiver Destination Wallet Address</label>
-                <input type="text" id="wallet-address" placeholder="Paste your crypto wallet address here..." style="margin-top:6px;">
-            </div>
-            <button class="withdraw-btn" onclick="processCryptoPayout()">💸 Request Secure Withdrawal</button>
-        </div>
-    </div>
-</div>
-
+    
+    <button onclick="handleSpin()" style="padding:15px; width:100%; background:#059669; color:white; border:none; border-radius:5px; margin-bottom:10px;">SPIN NOW</button>
+    <button onclick="watchAd()" style="padding:15px; width:100%; background:#2563eb; color:white; border:none; border-radius:5px;">WATCH AD (+1 SPIN)</button>
 </body>
 </html>
