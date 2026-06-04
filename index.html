@@ -3,65 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Spin Pro</title>
+    <title>Earn & Withdraw App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src='//libtl.com/sdk.js' data-zone='11099294' data-sdk='show_11099294'></script>
     <style>
-        body { background: #080b11; color: white; text-align: center; font-family: sans-serif; margin: 0; padding: 10px; }
-        .header { background: #1f2937; padding: 15px; border-radius: 15px; display: flex; justify-content: space-around; margin-bottom: 20px; border: 1px solid #374151; }
-        .wheel-container { position: relative; width: 280px; height: 280px; margin: 20px auto; }
-        #wheel-svg { width: 100%; height: 100%; transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99); }
-        .pointer { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-top: 30px solid #ef4444; z-index: 10; }
-        .btn { padding: 15px; width: 90%; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; margin: 8px; color: white; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; }
+        .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        input { padding: 10px; width: 80%; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; }
+        button { padding: 10px 20px; cursor: pointer; background: #0088cc; color: white; border: none; border-radius: 5px; margin: 5px; }
+        ul { list-style: none; padding: 0; text-align: left; font-size: 14px; }
+        li { background: #eee; margin: 5px 0; padding: 5px; border-radius: 3px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div>Coins: <span id="coins">0</span></div>
-        <div>Spins: <span id="spins">2</span></div>
-        <button onclick="alert('Withdraw feature active!')">Withdraw</button>
+    <h3>User: <span id="username">Guest</span> (ID: <span id="userid">0</span>)</h3>
+
+    <div class="card">
+        <h3>Balance: <span id="balance">0</span> Coins</h3>
+        <input type="text" id="walletAddress" placeholder="Enter Crypto Wallet Address (TRX/USDT)">
+        <button onclick="withdraw()">Withdraw (Min 20k)</button>
     </div>
 
-    <div class="wheel-container">
-        <div class="pointer"></div>
-        <svg id="wheel-svg" viewBox="0 0 300 300">
-            <circle cx="150" cy="150" r="145" fill="#1f2937" stroke="#38bdf8" stroke-width="5"/>
-            <path d="M150,150 L150,5 A145,145 0 0,1 252.5,47.5 Z" fill="#ef4444"/>
-            <path d="M150,150 L252.5,47.5 A145,145 0 0,1 295,150 Z" fill="#3b82f6"/>
-            <path d="M150,150 L295,150 A145,145 0 0,1 252.5,252.5 Z" fill="#10b981"/>
-            <path d="M150,150 L252.5,252.5 A145,145 0 0,1 150,295 Z" fill="#f59e0b"/>
-            <circle cx="150" cy="150" r="30" fill="#080b11"/>
-            <text x="150" y="158" text-anchor="middle" fill="white" font-weight="bold">SPIN</text>
-        </svg>
+    <div class="card">
+        <h3>Earn Coins</h3>
+        <button onclick="spin()">Spin Wheel</button>
+        <button onclick="watchAd()">Watch Ad (+100)</button>
     </div>
 
-    <button class="btn" style="background:#10b981" onclick="doSpin()">SPIN NOW</button>
-    <button class="btn" style="background:#3b82f6" onclick="watchAd()">WATCH AD (+1 SPIN)</button>
+    <div class="card">
+        <h3>History</h3>
+        <ul id="history-list"></ul>
+    </div>
 
     <script>
-        let coins = 0;
-        let spins = 2;
-        let rot = 0;
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        const user = tg.initDataUnsafe.user;
+        
+        let balance = parseInt(localStorage.getItem('balance')) || 0;
+        let history = JSON.parse(localStorage.getItem('history')) || [];
 
-        function doSpin() {
-            if (spins <= 0) return alert("No spins left!");
-            spins--;
-            let win = [50, 100, 200, 500][Math.floor(Math.random() * 4)];
-            coins += win;
-            rot += 1800 + (Math.floor(Math.random() * 4) * 90);
-            
-            document.getElementById('wheel-svg').style.transform = `rotate(${rot}deg)`;
-            document.getElementById('coins').innerText = coins;
-            document.getElementById('spins').innerText = spins;
+        document.getElementById('username').innerText = user?.username || "Guest";
+        document.getElementById('userid').innerText = user?.id || "N/A";
+        document.getElementById('balance').innerText = balance;
+        renderHistory();
+
+        function updateBalance(amount) {
+            balance += amount;
+            document.getElementById('balance').innerText = balance;
+            localStorage.setItem('balance', balance);
         }
 
-        async function watchAd() {
-            if(window.show_11099294) {
-                await window.show_11099294();
-                spins++;
-                document.getElementById('spins').innerText = spins;
+        function watchAd() {
+            updateBalance(100);
+            alert("Earned 100 coins!");
+        }
+
+        function spin() {
+            let win = Math.floor(Math.random() * 500) + 10;
+            updateBalance(win);
+            alert("You won " + win + " coins!");
+        }
+
+        function withdraw() {
+            let address = document.getElementById('walletAddress').value;
+            if (balance < 20000) {
+                alert("Minimum 20,000 coins required!");
+            } else if (!address) {
+                alert("Please enter your wallet address.");
+            } else {
+                let record = `${new Date().toLocaleDateString()}: Withdrew ${balance} coins to ${address.substring(0,6)}...`;
+                history.unshift(record);
+                localStorage.setItem('history', JSON.stringify(history));
+                updateBalance(-balance);
+                renderHistory();
+                alert("Withdrawal Successful!");
             }
+        }
+
+        function renderHistory() {
+            document.getElementById('history-list').innerHTML = history.map(item => `<li>${item}</li>`).join('');
         }
     </script>
 </body>
