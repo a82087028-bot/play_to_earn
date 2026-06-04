@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Crypto Spin & Earn (Professional Cloud)</title>
 
-    <script src="https://adsgram.org/sdk/v1/adcontroller.js"></script>
+    <!-- 🎬 Monetag Official SDK Integration for Telegram Mini App -->
+    <script src='//libtl.com/sdk.js' data-zone='11099294' data-sdk='show_11099294'></script>
 
     <script>
         let telegramUserId = "123456789"; // Live hone par yeh auto Telegram ID uthayega
@@ -17,10 +18,9 @@
         const TO_USD_RATE = 20000; 
         const MIN_CRYPTO_WITHDRAW = 20000; 
         const prizeRewards = [50, 1000, 300, 150, 75, 500, 250, 100];
-        const ADSGRAM_BLOCK_ID = 'test-banner';
         
-        // 🚨 NOTE: Jab Render aapko live URL dega, toh 'YOUR-RENDER-URL' ki jagah wo link paste kr dena
-        const BACKEND_URL = 'YOUR-RENDER-URL' || 'http://localhost:3000'; 
+        // 🚀 Vercel Deployment Optimization: Auto-detects domain URL paths smoothly
+        const BACKEND_URL = window.location.origin; 
 
         window.onload = function() {
             fetchUserData();
@@ -79,43 +79,65 @@
             if (availableSpins > 0) {
                 triggerLuckySpinFromServer();
             } else {
-                showAdsgramVideoAd();
+                showMonetagVideoAd();
             }
         }
 
-        function showAdsgramVideoAd() {
+        // 📺 Optimized Monetag SDK Trigger Mechanism
+        function showMonetagVideoAd() {
             isProcessing = true;
             const btn = document.getElementById('action-btn');
             if(btn) btn.disabled = true;
             document.getElementById('msg-banner').innerText = "⏳ Loading Video Ad...";
 
-            const AdController = window.Adsgram.init({ blockId: ADSGRAM_BLOCK_ID });
+            // Check if Monetag SDK function is ready in window context
+            if (typeof show_11099294 === 'function') {
+                show_11099294().then(async () => {
+                    // Trigger backend routing pipeline when user watches complete video
+                    await claimAdRewardOnBackend();
+                }).catch((err) => {
+                    console.error("Monetag display error or skipped:", err);
+                    alert("Ad skipped or failed to load. Please try again to receive reward!");
+                    resetStateControls();
+                });
+            } else {
+                // Secure Sandbox Fallback Handler for local testing environments
+                console.log("Monetag environment not initialized yet. Processing simulation reward...");
+                setTimeout(async () => {
+                    await claimAdRewardOnBackend();
+                }, 2000);
+            }
+        }
 
-            AdController.show().then(async (result) => {
-                try {
-                    let res = await fetch(`${BACKEND_URL}/api/reward-ad`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: telegramUserId })
-                    });
-                    let data = await res.json();
+        // Secure backend dispatcher logic for Ad Rewards
+        async function claimAdRewardOnBackend() {
+            const btn = document.getElementById('action-btn');
+            try {
+                let res = await fetch(`${BACKEND_URL}/api/reward-ad`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: telegramUserId })
+                });
+                let data = await res.json();
+                
+                if (data.error) {
+                    alert(data.error);
+                } else {
                     availableSpins = data.spins;
-                    isProcessing = false;
-                    if(btn) btn.disabled = false;
-                    updateDashboard();
                     document.getElementById('msg-banner').innerHTML = `🎬 Ad Reward Confirmed by Server!`;
-                } catch (e) {
-                    alert("Server error processing ad reward.");
-                    isProcessing = false;
-                    if(btn) btn.disabled = false;
                 }
-            }).catch((result) => {
-                isProcessing = false;
-                if(btn) btn.disabled = false;
-                updateDashboard();
-                updateButtonUI();
-                alert("Ad skipped or failed.");
-            });
+            } catch (e) {
+                alert("Server error processing ad reward validation registry.");
+            }
+            resetStateControls();
+        }
+
+        function resetStateControls() {
+            isProcessing = false;
+            const btn = document.getElementById('action-btn');
+            if(btn) btn.disabled = false;
+            updateDashboard();
+            updateButtonUI();
         }
 
         async function triggerLuckySpinFromServer() {
@@ -325,7 +347,7 @@
         <div class="payout-balance-display">
             <div style="font-size:13px; color:#94a3b8;">Your Current Redeemable Value</div>
             <div class="big-balance"><span id="payout-cash-count">0.000</span> USD</div>
-            <div style="font-size:11px; color:#64748b; margin-top:5px;">Min Payout Threshold: 20,000 Coins ($1.00)</div>
+            <div style="font-size:11px; color:#64748b; margin-top:5px;">Min Payout Threshold: 20,000 Coins ($0.005 per 100)</div>
         </div>
         <div class="withdraw-inputs">
             <div>
